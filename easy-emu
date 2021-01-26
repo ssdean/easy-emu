@@ -1,0 +1,140 @@
+#!/bin/bash
+
+QEMU=$(which qemu-system-x86_64)
+QEMU_IMG=$(which qemu-img)
+
+# Host system specs
+RAM=$(grep MemTotal /proc/meminfo | awk '{print int($2 /1000)}')
+THREADS=$(lscpu | awk 'NR == 7 {print $4}')
+CORES=$(lscpu | awk 'NR == 8 {print $4}')
+SOCKETS=$(lscpu | awk 'NR == 9 {print $2}')
+CPUS=$(($SOCKETS * $CORES * $THREADS))
+
+# Flags
+F_CREATE=0
+F_RUN=0
+
+# VM variables
+ISO=""
+SIZE=10
+
+if [ -z $QEMU ] || [ -z $QEMU_IMG ]; then
+    echo "ERROR: qemu is not installed"
+    exit 1
+fi
+
+function usage() {
+    echo "
+Usage: easy-emu [options]
+
+-create | -c [vm name]      Create a new virtual machine 
+-cpus                       Specify number of cpus. Default is host max
+-iso | -i                   Path to OS ISO image
+-memory | -m [RAM in MB]    Specify RAM amount. Default is host max
+-run | -r [vm name]         Start an existing VM
+-size | -s [Size in GB]     Specify size of virtual disk. Default is 10GB                
+          "
+    exit 0
+}
+
+function host() {
+    echo "
+Host specifications
+--------------------------
+Sockets:          $SOCKETS
+Cores per socket: $CORES    
+Threads per core: $THREADS
+Total CPUs:       $CPUS
+RAM:              $RAM M
+"
+    exit 0
+}
+
+function create_vm() {
+    if [ -z $5 ]; then
+        echo "No ISO image supplied"
+        exit 1
+    fi    
+    if [ -e "$1.img" ]; then
+        echo "$1 already exists"
+        exit 1
+    fi
+    qemu-img create -f qcow2 -o size=$2G $1.img
+    qemu-system-x86_64 -enable-kvm -m $3m -smp $4 -cdrom $5 -drive file=$1.img 
+}
+
+function run_vm() {
+    if [ ! -e "$1.img" ]; then
+        echo "$1 not found"
+        exit 1
+    fi
+    qemu-system-x86_64 -enable-kvm -m $2m -smp $3 -drive file=$1.img 
+}
+
+if [ $# -lt 1 ]; then
+    usage
+    exit 0
+else
+    while [ $# -gt 0 ]; do
+        case ${1} in
+            --help | -help | -h)
+                usage
+            ;; 
+            --host | -host)
+                host
+            ;;
+            --create | -create | -c)
+                F_CREATE=1
+                NAME=${2}
+                shift; shift
+            ;;
+            --iso | -iso | -i)
+                if [ ! -e ${2} ]; then  
+                   echo "ISO not found" 
+                   exit 1
+                fi 
+                ISO=${2}
+                shift; shift
+            ;;
+            --memory | -memory | -m)
+                RAM=${2}
+                shift; shift
+            ;;
+            --cpus | -cpus)
+                CPUS=${2}
+                shift; shift
+            ;;
+            --run | -run | -r)
+                F_RUN=1
+                NAME=${2}
+                shift; shift
+            ;;
+            --size | -size | -s)
+                SIZE=${2}
+                shift; shift
+            ;;
+            -test)
+                echo $F_ALL
+                shift
+            ;;
+        esac
+    done
+fi
+
+function run() {    
+    F_ALL=$(($F_CREATE + $F_RUN))
+    if [ $F_ALL -gt 1 ]; then 
+        echo "Invalid flag combination"
+        exit 1
+    fi
+    
+    if [ $F_CREATE -gt 0 ]; then
+        create_vm $NAME $SIZE $RAM $CPUS $ISO
+    fi
+    
+    if [ $F_RUN -gt 0 ]; then
+        run_vm $NAME $RAM $CPUS
+    fi
+}
+
+run &
