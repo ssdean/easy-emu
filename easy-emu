@@ -13,10 +13,12 @@ CPUS=$(($SOCKETS * $CORES * $THREADS))
 # Flags
 F_CREATE=0
 F_RUN=0
+F_FULLSCREEN=0
 
 # VM variables
 ISO=""
 SIZE=10
+OPTS=""
 
 if [ -z $QEMU ] || [ -z $QEMU_IMG ]; then
     echo "ERROR: qemu is not installed"
@@ -68,7 +70,7 @@ function run_vm() {
         echo "$1 not found"
         exit 1
     fi
-    qemu-system-x86_64 -enable-kvm -m $2m -smp $3 -drive file=$1.img 
+    qemu-system-x86_64 -enable-kvm -m $2 -smp $3 -drive file=$1.img $4 
 }
 
 if [ $# -lt 1 ]; then
@@ -87,6 +89,10 @@ else
                 F_CREATE=1
                 NAME=${2}
                 shift; shift
+            ;;
+            --fullscreen | -fullscreen | -f)
+                F_FULLSCREEN=1
+                shift
             ;;
             --iso | -iso | -i)
                 if [ ! -e ${2} ]; then  
@@ -114,12 +120,19 @@ else
                 shift; shift
             ;;
             -test)
-                echo $F_ALL
+                echo $F_RAM
                 shift
             ;;
         esac
     done
 fi
+
+function opt_flags() {
+    if [ $F_FULLSCREEN -gt 0 ]; then
+       OPTS="$OPTS -full-screen"
+    fi 
+}
+
 
 function run() {    
     F_ALL=$(($F_CREATE + $F_RUN))
@@ -133,8 +146,9 @@ function run() {
     fi
     
     if [ $F_RUN -gt 0 ]; then
-        run_vm $NAME $RAM $CPUS
+        run_vm $NAME $RAM $CPUS $OPTS
     fi
 }
 
+opt_flags
 run &
