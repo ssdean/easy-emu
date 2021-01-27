@@ -53,24 +53,24 @@ RAM:              $RAM M
 }
 
 function create_vm() {
-    if [ -z $5 ]; then
+    if [ -z $ISO ]; then
         echo "No ISO image supplied"
         exit 1
     fi    
-    if [ -e "$1.img" ]; then
-        echo "$1 already exists"
+    if [ -e "$NAME.img" ]; then
+        echo "$NAME already exists"
         exit 1
     fi
-    qemu-img create -f qcow2 -o size=$2G $1.img
-    qemu-system-x86_64 -enable-kvm -m $3m -smp $4 -cdrom $5 -drive file=$1.img 
+    qemu-img create -f qcow2 -o size=$SIZE"G" $NAME".img"
+    qemu-system-x86_64 -enable-kvm $OPTS
 }
 
 function run_vm() {
-    if [ ! -e "$1.img" ]; then
-        echo "$1 not found"
+    if [ ! -e "$NAME.img" ]; then
+        echo "VM not found"
         exit 1
     fi
-    qemu-system-x86_64 -enable-kvm -m $2 -smp $3 -drive file=$1.img $4 
+    qemu-system-x86_64 -enable-kvm $OPTS
 }
 
 if [ $# -lt 1 ]; then
@@ -78,7 +78,7 @@ if [ $# -lt 1 ]; then
     exit 0
 else
     while [ $# -gt 0 ]; do
-        case ${1} in
+        case $1 in
             --help | -help | -h)
                 usage
             ;; 
@@ -87,7 +87,7 @@ else
             ;;
             --create | -create | -c)
                 F_CREATE=1
-                NAME=${2}
+                NAME=$2
                 shift; shift
             ;;
             --fullscreen | -fullscreen | -f)
@@ -95,28 +95,28 @@ else
                 shift
             ;;
             --iso | -iso | -i)
-                if [ ! -e ${2} ]; then  
+                if [ ! -e $2 ]; then  
                    echo "ISO not found" 
                    exit 1
                 fi 
-                ISO=${2}
+                ISO=$2
                 shift; shift
             ;;
             --memory | -memory | -m)
-                RAM=${2}
+                RAM=$2
                 shift; shift
             ;;
             --cpus | -cpus)
-                CPUS=${2}
+                CPUS=$2
                 shift; shift
             ;;
             --run | -run | -r)
                 F_RUN=1
-                NAME=${2}
+                NAME=$2
                 shift; shift
             ;;
             --size | -size | -s)
-                SIZE=${2}
+                SIZE=$2
                 shift; shift
             ;;
             -test)
@@ -128,27 +128,36 @@ else
 fi
 
 function opt_flags() {
+    OPTS="-drive file=$NAME".img" -m $RAM"m" -smp $CPUS"
     if [ $F_FULLSCREEN -gt 0 ]; then
        OPTS="$OPTS -full-screen"
     fi 
+    if [ ! -z $ISO ]; then
+        OPTS="$OPTS -cdrom $ISO"
+    fi
 }
 
 
-function run() {    
+function start() {    
     F_ALL=$(($F_CREATE + $F_RUN))
     if [ $F_ALL -gt 1 ]; then 
         echo "Invalid flag combination"
         exit 1
     fi
+
+    if [ $F_ALL -lt 1 ]; then
+        echo "Nothing to do"
+        exit 1
+    fi
     
     if [ $F_CREATE -gt 0 ]; then
-        create_vm $NAME $SIZE $RAM $CPUS $ISO
+        create_vm
     fi
     
     if [ $F_RUN -gt 0 ]; then
-        run_vm $NAME $RAM $CPUS $OPTS
+        run_vm
     fi
 }
 
 opt_flags
-run &
+start &
