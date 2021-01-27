@@ -9,6 +9,7 @@ THREADS=$(lscpu | awk 'NR == 7 {print $4}')
 CORES=$(lscpu | awk 'NR == 8 {print $4}')
 SOCKETS=$(lscpu | awk 'NR == 9 {print $2}')
 CPUS=$(($SOCKETS * $CORES * $THREADS))
+SCREEN_RES=$(cat /sys/class/graphics/*/virtual_size | sed 's/,/x/')
 
 # Flags
 F_CREATE=0
@@ -20,6 +21,7 @@ ISO=""
 SIZE=10
 OPTS=""
 
+# Check qemu is installed
 if [ -z $QEMU ] || [ -z $QEMU_IMG ]; then
     echo "ERROR: qemu is not installed"
     exit 1
@@ -35,9 +37,11 @@ Usage: easy-emu [options]
 -memory | -m [RAM in MB]    Specify RAM amount. Default is host max
 -run | -r [vm name]         Start an existing VM
 -size | -s [Size in GB]     Specify size of virtual disk. Default is 10GB                
+-fullscreen | -f            Start in fullscreen 
           "
     exit 0
 }
+
 
 function host() {
     echo "
@@ -48,6 +52,7 @@ Cores per socket: $CORES
 Threads per core: $THREADS
 Total CPUs:       $CPUS
 RAM:              $RAM M
+Resolution:       $SCREEN_RES
 "
     exit 0
 }
@@ -61,8 +66,8 @@ function create_vm() {
         echo "$NAME already exists"
         exit 1
     fi
-    qemu-img create -f qcow2 -o size=$SIZE"G" $NAME".img"
-    qemu-system-x86_64 -enable-kvm $OPTS
+    qemu-img create -f qcow2 -o size=$SIZE"G" $NAME".img";
+    qemu-system-x86_64 $OPTS
 }
 
 function run_vm() {
@@ -70,7 +75,7 @@ function run_vm() {
         echo "VM not found"
         exit 1
     fi
-    qemu-system-x86_64 -enable-kvm $OPTS
+    qemu-system-x86_64 $OPTS
 }
 
 if [ $# -lt 1 ]; then
@@ -91,7 +96,7 @@ else
                 shift; shift
             ;;
             --fullscreen | -fullscreen | -f)
-                F_FULLSCREEN=1
+                OPTS="-full-screen $OPTS"
                 shift
             ;;
             --iso | -iso | -i)
@@ -100,6 +105,7 @@ else
                    exit 1
                 fi 
                 ISO=$2
+                OPTS="-cdrom $ISO $OPTS"
                 shift; shift
             ;;
             --memory | -memory | -m)
@@ -125,18 +131,8 @@ else
             ;;
         esac
     done
+    OPTS="-name $NAME -enable-kvm -cpu host -vga virtio -drive file=$NAME".img" -m $RAM"m" -smp sockets=$SOCKETS,cores=$CPUS $OPTS"
 fi
-
-function opt_flags() {
-    OPTS="-drive file=$NAME".img" -m $RAM"m" -smp $CPUS"
-    if [ $F_FULLSCREEN -gt 0 ]; then
-       OPTS="$OPTS -full-screen"
-    fi 
-    if [ ! -z $ISO ]; then
-        OPTS="$OPTS -cdrom $ISO"
-    fi
-}
-
 
 function start() {    
     F_ALL=$(($F_CREATE + $F_RUN))
@@ -159,5 +155,4 @@ function start() {
     fi
 }
 
-opt_flags
 start &
