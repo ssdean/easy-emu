@@ -2,6 +2,8 @@
 
 QEMU=$(which qemu-system-x86_64)
 QEMU_IMG=$(which qemu-img)
+OVMF=('/usr/share/ovmf/x64/OVMF.fd' '/usr/share/ovmf/OVMF.fd')
+UEFI_IMG=""
 
 # Host system specs
 RAM=$(grep MemTotal /proc/meminfo | awk '{print int($2 /1000)}')
@@ -125,8 +127,20 @@ else
                 SIZE=$2
                 shift; shift
             ;;
+            --uefi | -uefi)
+                for i in "${OVMF[@]}"; do
+                    if [ -e $i ]; then
+                        UEFI_IMG=$i
+                    fi
+                done
+                if [ -z UEFI_IMG ]; then
+                    echo "Unable to find OVMF. Is it installed?"
+                    exit 1
+                fi
+                OPTS="-bios $UEFI_IMG $OPTS"
+                shift; shift
+            ;;
             -test)
-                echo $F_RAM
                 shift
             ;;
         esac
