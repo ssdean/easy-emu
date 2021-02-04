@@ -145,7 +145,7 @@ else
             ;;
         esac
     done
-    OPTS="-name $NAME -enable-kvm -cpu host -vga virtio -drive file=$NAME".img" -m $RAM"m" -smp sockets=$SOCKETS,cores=$CPUS $OPTS"
+    OPTS="-name $NAME -enable-kvm -sdl -cpu host -vga virtio -drive file=$NAME".img" -m $RAM"m" -smp sockets=$SOCKETS,cores=$CPUS $OPTS"
 fi
 
 function start() {    
