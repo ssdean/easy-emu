@@ -43,7 +43,8 @@ Usage: easy-emu [options]
 -iso        | -i [Path]        Path to OS ISO image
 -memory     | -m [RAM in MB]   Specify RAM amount. Must specify unit (M = megabyte G = gigabyte). Default is host max
 -size       | -s [Size]        Specify size of virtual disk. Must specify unit (M = megabyte G = gigabyte). Default is 10G              
--fullscreen | -f               Start in fullscreen. Ctrl-Alt-F to exit 
+-fullscreen | -f               Start in fullscreen. Ctrl-Alt-F to exit
+-uefi                          Boot in UEFI mode. Requires OVMF 
           "
     exit 0
 }
@@ -177,4 +178,4 @@ function start() {
     run_vm ${FLAGS[@]}
 }
 
-start 
+start &
