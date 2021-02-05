@@ -2,8 +2,7 @@
 
 QEMU=$(which qemu-system-x86_64)
 QEMU_IMG=$(which qemu-img)
-OVMF=('/usr/share/ovmf/x64/OVMF.fd' '/usr/share/ovmf/OVMF.fd')
-UEFI_IMG=""
+OVMF=('/usr/share/ovmf/x64/OVMF.fd' '/usr/share/ovmf/OVMF.fd') 
 
 # Host system specs
 RAM=$(grep MemTotal /proc/meminfo | awk '{print int($2 /1000)}')
@@ -13,15 +12,19 @@ SOCKETS=$(lscpu | awk 'NR == 9 {print $2}')
 CPUS=$(($SOCKETS * $CORES * $THREADS))
 SCREEN_RES=$(cat /sys/class/graphics/*/virtual_size | sed 's/,/x/')
 
+# Defaults
+DEFAULT_DISK_SIZE="10G"
+
 # Flags
 F_CREATE=0
-F_RUN=0
-F_FULLSCREEN=0
 
 # VM variables
-ISO=""
-SIZE=10
-OPTS=""
+declare -A VARS=( [ram]=${RAM}
+                  [cpus]=$CPUS 
+                  [sockets]=$SOCKETS
+)
+
+FLAGS=("-enable-kvm -sdl -cpu host -vga virtio") # Default flags, updated in start()
 
 # Check qemu is installed
 if [ -z $QEMU ] || [ -z $QEMU_IMG ]; then
@@ -33,18 +36,18 @@ function usage() {
     echo "
 Usage: easy-emu [options]
 
--create | -c [vm name]      Create a new virtual machine 
--cpus                       Specify number of cpus. Default is host max
--iso | -i                   Path to OS ISO image
--memory | -m [RAM in MB]    Specify RAM amount. Default is host max
--run | -r [vm name]         Start an existing VM
--size | -s [Size in GB]     Specify size of virtual disk. Default is 10GB                
--fullscreen | -f            Start in fullscreen 
+-create     | -c [vm name]     Create a new virtual machine 
+-run        | -r [vm name]     Start an existing VM
+-cpus       | -C [num cpus]    Specify number of cpus. Default is host max
+-iso        | -i               Path to OS ISO image
+-memory     | -m [RAM in MB]   Specify RAM amount. Default is host max
+-size       | -s [Size]        Specify size of virtual disk. Must specify unit (M = megabyte G = gigabyte). Default is 10G              
+-fullscreen | -f               Start in fullscreen. Ctrl-Alt-F to exit 
           "
     exit 0
 }
 
-
+# Show some basic system info for host
 function host() {
     echo "
 Host specifications
@@ -59,26 +62,24 @@ Resolution:       $SCREEN_RES
     exit 0
 }
 
-function create_vm() {
-    if [ -z $ISO ]; then
-        echo "No ISO image supplied"
-        exit 1
-    fi    
-    if [ -e "$NAME.img" ]; then
-        echo "$NAME already exists"
-        exit 1
-    fi
-    qemu-img create -f qcow2 -o size=$SIZE"G" $NAME".img";
-    qemu-system-x86_64 $OPTS
+# Start qemu VM
+function run_vm() {
+    $QEMU ${@}
 }
 
-function run_vm() {
-    if [ ! -e "$NAME.img" ]; then
-        echo "VM not found"
+# Create a qcow2 virtual HDD
+function create_disk() {
+    if [ -z "${VARS[iso]}" ]; then
+        echo "No ISO image supplied"
         exit 1
-    fi
-    qemu-system-x86_64 $OPTS
+    fi 
+    if [ -z "${VARS[size]}" ]; then
+        qemu-img create -f qcow2 -o size=$DEFAULT_DISK_SIZE ${VARS[name]}
+    else
+        qemu-img create -f qcow2 -o size=${VARS[size]} ${VARS[name]}
+    fi     
 }
+
 
 if [ $# -lt 1 ]; then
     usage
@@ -92,13 +93,25 @@ else
             --host | -host)
                 host
             ;;
+            --run | -run | -r)
+                if [ ! -e $2 ]; then
+                    echo "VM not found"
+                    exit 1
+                fi
+                VARS+=( [name]=$2 )
+                shift; shift
+            ;;
             --create | -create | -c)
+                if [ -e $2 ]; then
+                    echo "$2 already exists"
+                    exit 1
+                fi
                 F_CREATE=1
-                NAME=$2
+                VARS+=( [name]=$2 )
                 shift; shift
             ;;
             --fullscreen | -fullscreen | -f)
-                OPTS="-full-screen $OPTS"
+                FLAGS+=( "-full-screen" )
                 shift
             ;;
             --iso | -iso | -i)
@@ -106,25 +119,23 @@ else
                    echo "ISO not found" 
                    exit 1
                 fi 
-                ISO=$2
-                OPTS="-cdrom $ISO $OPTS"
+                VARS+=( [iso]=$2 )
                 shift; shift
             ;;
             --memory | -memory | -m)
-                RAM=$2
+                VARS+=( [ram]=$2 )
                 shift; shift
             ;;
-            --cpus | -cpus)
-                CPUS=$2
+            --sockets | -sockets | -S)
+                VARS+=( [sockets]=$2 )
                 shift; shift
             ;;
-            --run | -run | -r)
-                F_RUN=1
-                NAME=$2
+            --cpus | -cpus | -C)
+                VARS+=( [cpus]=$2 )
                 shift; shift
             ;;
             --size | -size | -s)
-                SIZE=$2
+                VARS+=( [size]=$2 )
                 shift; shift
             ;;
             --uefi | -uefi)
@@ -137,36 +148,32 @@ else
                     echo "Unable to find OVMF. Is it installed?"
                     exit 1
                 fi
-                OPTS="-bios $UEFI_IMG $OPTS"
-                shift; shift
+                FLAGS+=( "-bios $UEFI_IMG" )
+                shift
+            ;;
+            *)
+                usage
             ;;
             -test)
                 shift
             ;;
         esac
     done
-    OPTS="-name $NAME -enable-kvm -sdl -cpu host -vga virtio -drive file=$NAME".img" -m $RAM"m" -smp sockets=$SOCKETS,cores=$CPUS $OPTS"
 fi
 
 function start() {    
-    F_ALL=$(($F_CREATE + $F_RUN))
-    if [ $F_ALL -gt 1 ]; then 
-        echo "Invalid flag combination"
-        exit 1
-    fi
-
-    if [ $F_ALL -lt 1 ]; then
-        echo "Nothing to do"
-        exit 1
-    fi
     
     if [ $F_CREATE -gt 0 ]; then
-        create_vm
+        create_disk
+    fi
+
+    FLAGS+=( "-name ${VARS[name]}" "-drive file=${VARS[name]}" "-m ${VARS[ram]}" "-smp sockets=${VARS[sockets]},cores=${VARS[cpus]}" )
+
+    if [ -n "${VARS[iso]}" ]; then
+        FLAGS+=( "-cdrom ${VARS[iso]}" )
     fi
     
-    if [ $F_RUN -gt 0 ]; then
-        run_vm
-    fi
+    run_vm ${FLAGS[@]}
 }
 
-start &
+start 
