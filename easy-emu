@@ -36,11 +36,12 @@ function usage() {
     echo "
 Usage: easy-emu [options]
 
--create     | -c [vm name]     Create a new virtual machine 
--run        | -r [vm name]     Start an existing VM
--cpus       | -C [num cpus]    Specify number of cpus. Default is host max
--iso        | -i               Path to OS ISO image
--memory     | -m [RAM in MB]   Specify RAM amount. Default is host max
+-create     | -c [VM name]     Create a new virtual machine 
+-run        | -r [VM name]     Start an existing VM
+-cpus       | -C [Num cpus]    Specify number of cpus. Default is host max
+-sockets    | -S [Num sockets] Specify number of sockets. Default is host max
+-iso        | -i [Path]        Path to OS ISO image
+-memory     | -m [RAM in MB]   Specify RAM amount. Must specify unit (M = megabyte G = gigabyte). Default is host max
 -size       | -s [Size]        Specify size of virtual disk. Must specify unit (M = megabyte G = gigabyte). Default is 10G              
 -fullscreen | -f               Start in fullscreen. Ctrl-Alt-F to exit 
           "
