@@ -67,20 +67,30 @@ Resolution:       $SCREEN_RES
 
 # Create a qcow2 virtual HDD
 function create_disk() {
+    # Ensure VM doesn't exist
     if [ -e ${VARS[name]} ]; then
         echo -e "\n${VARS[name]} already exists.\n"
         exit 1
     fi
-
+    
+    # Check for ISO image
     if [ -z "${VARS[iso]}" ]; then
         echo -e "\nNo ISO image supplied.\n"
         exit 1
     fi 
+    
+    # Create qcow2 image
     if [ -z "${VARS[size]}" ]; then
-        qemu-img create -f qcow2 -o size=$DEFAULT_DISK_SIZE ${VARS[name]}
+        qemu-img create -f qcow2 -o size=$DEFAULT_DISK_SIZE ${VARS[name]}  > /dev/null 2>&1
     else
-        qemu-img create -f qcow2 -o size=${VARS[size]} ${VARS[name]}
-    fi     
+        qemu-img create -f qcow2 -o size=${VARS[size]} ${VARS[name]}  > /dev/null 2>&1
+    fi
+    
+    # Check exit code of qemu-img. Exit on failure
+    if [ ${PIPESTATUS} -gt 0 ]; then
+        echo -e "\nFailed to create image.\n"
+        exit 1
+    fi
 }
 
 if [ $# -lt 1 ]; then
