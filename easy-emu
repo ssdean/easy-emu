@@ -125,6 +125,11 @@ else
                 shift; shift
             ;;
             --memory | -memory | -m)
+                if [[ ! $2 =~ ^[0-9].*[KkMmGg] ]]; then
+                    echo -e "\nMust specify memory unit.\n"
+                exit 1
+                fi
+
                 VARS+=( [ram]=$2 )
                 shift; shift
             ;;
@@ -137,6 +142,11 @@ else
                 shift; shift
             ;;
             --size | -size | -s)
+                if [[ ! $2 =~ ^[0-9].*[KkMmGg] ]]; then
+                    echo -e "\nMust specify disk size unit.\n"
+                    exit 1
+                fi
+
                 VARS+=( [size]=$2 )
                 shift; shift
             ;;
@@ -188,6 +198,10 @@ function start() {
         echo -e "\nUnable find ${VARS[name]}. Check path or use -c to create it.\n"
         exit 1
     fi
+    
+    for i in "${!VARS[@]}"; do
+        echo "${i^}: ${VARS[$i]}"
+    done
 
     $QEMU ${FLAGS[@]}
 }
