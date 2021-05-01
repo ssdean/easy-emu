@@ -39,6 +39,7 @@ Usage: easy-emu [options] [VM name]
 -help       | -h               Show this help message
 -host                          Show some basic host system info
 -create     | -c               Create a new virtual machine 
+-name       | -n [VM name]     Specify name of VM. Otherwise will check last argument for a valid name
 -cpus       | -C [Num cpus]    Specify number of cpus. Default is host max
 -sockets    | -S [Num sockets] Specify number of sockets. Default is host max
 -iso        | -i [Path]        Path to OS ISO image
@@ -107,6 +108,10 @@ else
             ;; 
             --host | -host)
                 host
+            ;;
+            --name | -name | -n )
+                VARS[name]=$2
+                shift; shift
             ;;
             --create | -create | -c)
                 F_CREATE=1
@@ -180,8 +185,7 @@ function start() {
     if [ -n "${VARS[iso]}" ]; then
         FLAGS+=( "-cdrom ${VARS[iso]}" )
     fi
-    
-    # Check name was given at end
+    # Check name was given
     for i in "${!VARS[@]}"; do
         if [[ "${VARS[$i]}" == "${VARS[name]}" && "$i" != "name" ]]; then
             usage
