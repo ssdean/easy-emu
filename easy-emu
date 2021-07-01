@@ -6,11 +6,11 @@ OVMF=('/usr/share/ovmf/x64/OVMF.fd' '/usr/share/ovmf/OVMF.fd')
 
 # Host system specs
 RAM=$(grep MemTotal /proc/meminfo | awk '{print int($2 /1000)}')
-THREADS=$(lscpu | awk 'NR == 7 {print $4}')
-CORES=$(lscpu | awk 'NR == 8 {print $4}')
-SOCKETS=$(lscpu | awk 'NR == 9 {print $2}')
+THREADS=$(lscpu | awk -F ":" '/Thread\(s\)/ {print $2}' | awk '{print $1}')
+CORES=$(lscpu | awk -F ":" '/Core\(s\)/ {print $2}' | awk '{print $1}')
+SOCKETS=$(lscpu | awk -F ":" '/Socket\(s\)/ {print $2}' | awk '{print $1}')
 CPUS=$(($SOCKETS * $CORES * $THREADS))
-SCREEN_RES=$(cat /sys/class/graphics/*/virtual_size | sed 's/,/x/')
+SCREEN_RES=$(sed 's/,/x/' /sys/class/graphics/*/virtual_size)
 
 # Defaults
 DEFAULT_DISK_SIZE="10G"
@@ -81,6 +81,7 @@ function create_disk() {
     fi 
     
     # Create qcow2 image
+    # Check for user specified size, otherwise use default.
     if [ -z "${VARS[size]}" ]; then
         qemu-img create -f qcow2 -o size=$DEFAULT_DISK_SIZE ${VARS[name]}  > /dev/null 2>&1
     else
