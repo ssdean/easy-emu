@@ -12,13 +12,11 @@ SOCKETS=$(lscpu | awk -F ":" '/Socket\(s\)/ {print $2}' | awk '{print $1}')
 CPUS=$(($SOCKETS * $CORES * $THREADS))
 SCREEN_RES=$(sed 's/,/x/' /sys/class/graphics/*/virtual_size)
 
-# Defaults
-DEFAULT_DISK_SIZE="10G"
-
-# VM variables
+# Default VM variables
 declare -A VARS=( [ram]=${RAM}
                   [cpus]=$CPUS 
                   [sockets]=$SOCKETS
+                  [size]="10G"
                   [graphics]="virtio"
                   [full-screen]="off"
 )
@@ -79,12 +77,7 @@ function create_disk() {
     fi 
     
     # Create qcow2 image
-    # Check for user specified size, otherwise use default.
-    if [ -z "${VARS[size]}" ]; then
-        qemu-img create -f qcow2 -o size=$DEFAULT_DISK_SIZE ${VARS[name]}  > /dev/null 2>&1
-    else
-        qemu-img create -f qcow2 -o size=${VARS[size]} ${VARS[name]}  > /dev/null 2>&1
-    fi
+    qemu-img create -f qcow2 -o size=${VARS[size]} ${VARS[name]}  > /dev/null 2>&1
     
     # Check exit code of qemu-img. Exit on failure
     if [ ${PIPESTATUS} -gt 0 ]; then
@@ -131,15 +124,15 @@ else
                 exit 1
                 fi
 
-                VARS+=( [ram]=$2 )
+                VARS[ram]=$2
                 shift; shift
             ;;
             --sockets | -sockets | -S)
-                VARS+=( [sockets]=$2 )
+                VARS[sockets]=$2
                 shift; shift
             ;;
             --cpus | -cpus | -C)
-                VARS+=( [cpus]=$2 )
+                VARS[cpus]=$2
                 shift; shift
             ;;
             --size | -size | -s)
@@ -147,8 +140,7 @@ else
                     echo -e "\nMust specify disk size unit.\n"
                     exit 1
                 fi
-
-                VARS+=( [size]=$2 )
+                VARS[size]=$2
                 shift; shift
             ;;
             --uefi | -uefi)
