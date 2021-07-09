@@ -19,9 +19,11 @@ DEFAULT_DISK_SIZE="10G"
 declare -A VARS=( [ram]=${RAM}
                   [cpus]=$CPUS 
                   [sockets]=$SOCKETS
+                  [graphics]="virtio"
+                  [full-screen]="off"
 )
 
-FLAGS=("-enable-kvm -sdl -cpu host -vga virtio") # Default flags, updated in start()
+FLAGS=("-enable-kvm -cpu host") # Default flags, updated in start()
 
 # Check qemu is installed
 if [ -z $QEMU ] || [ -z $QEMU_IMG ]; then
@@ -111,7 +113,7 @@ else
                 shift; shift
             ;;
             --fullscreen | -fullscreen | -f)
-                FLAGS+=( "-full-screen" )
+                VARS[full-screen]="on"
                 shift
             ;;
             --iso | -iso | -i)
@@ -174,7 +176,12 @@ fi
 
 function start() {    
     # Update flags 
-    FLAGS+=( "-name ${VARS[name]}" "-drive file=${VARS[name]}" "-m ${VARS[ram]}" "-smp sockets=${VARS[sockets]},cores=${VARS[cpus]}" )
+    FLAGS+=( "-name ${VARS[name]} \
+              -drive file=${VARS[name]} \
+              -m ${VARS[ram]} \
+              -smp sockets=${VARS[sockets]},cores=${VARS[cpus]} \
+              -vga ${VARS[graphics]} \
+              -display gtk,grab-on-hover=on,full-screen=${VARS[full-screen]}")
 
     # Check name was given
     for i in "${!VARS[@]}"; do

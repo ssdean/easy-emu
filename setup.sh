@@ -5,4 +5,4 @@ FILENAME="easy-emu"
 SOURCE="$DIR/$FILENAME"
 DEST="/usr/local/bin"
 
-cp $SOURCE $DEST
+cp -v $SOURCE $DEST
