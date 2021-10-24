@@ -123,16 +123,19 @@ function configure_cpu() {
                           
     VARS[cpus]=$1
 
-    # Check CPU count
+    # Is given cpu count even or odd? If even cpu should probably be multithreaded.
     if [ $(awk -v cpus="${VARS[cpus]}" 'BEGIN {num=cpus%2; print num}') != '0' ]; then
         # CPU count is odd
         VARS[threads]=1
+    else 
+        # CPU count is even
+        VARS[threads]=2
     fi
 
     VARS[cores]=$(awk -v cpus="${VARS[cpus]}" -v threads="${VARS[threads]}" 'BEGIN {num=cpus/threads; print num}')
 
     if [ ${VARS[cores]} -gt $CORES ]; then 
-        echo -e "\nSelected CPU configuration uses more cores than host has available\n"
+        echo -e "\nSelected CPU configuration oversubscribes hosts\n"
         exit 1
     fi
 }
